@@ -1,4 +1,4 @@
-# Stateful Component
+# Stateful Components
 
 A stateful component is a component that stores and displays some data.
 
@@ -23,7 +23,7 @@ local function Counter()
         instance.Text = "count: " .. count()
     end)
 
-    return count
+    return instance
 end
 ```
 
@@ -49,7 +49,7 @@ local function Counter(props: { count: () -> number })
         instance.Text = "count: " .. count()
     end)
 
-    return count
+    return instance
 end
 
 local count = source(0)
