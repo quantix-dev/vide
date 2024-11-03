@@ -4,12 +4,12 @@
 
 ## mount()
 
-Runs a function in a new reactive scope and optionally applies its result to a
+Runs a function in a new stable scope and optionally applies its result to a
 target instance.
 
 - **Type**
   
-    ```lua
+    ```luau
     function mount<T>(component: () -> T, target: Instance?): () -> ()
     ```
 
@@ -18,14 +18,14 @@ target instance.
     The result of the function is applied to a target in the same way
     properties are using `create()`.
 
-    The function is ran in a new reactive scope, just like
+    The function is ran in a new stable scope, just like
     [root()](reactivity-core.md#root).
 
-    Returns a function that when called will destroy the reactive scope.
+    Returns a function that when called will destroy the stable scope.
 
 - **Example**
 
-    ```lua
+    ```luau
     local function App()
         return create "ScreenGui" {
             create "TextLabel" { Text = "Vide" }
@@ -41,7 +41,7 @@ Creates a new UI element, applying any given properties.
 
 - **Type**
 
-    ```lua
+    ```luau
     function create(class: string): (Properties) -> Instance
     function create(instance: Instance): (Properties) -> Instance
 
@@ -69,14 +69,14 @@ Creates a new UI element, applying any given properties.
     - **index is number:**
       - **value is action:** run action
       - **value is table:** recurse table
-      - **value is functon:** create effect to update children
+      - **value is function:** create effect to update children
       - **value is instance:** set instance as child
 
 - **Example**
 
     Basic element creation.
 
-    ```lua
+    ```luau
     local frame = create "Frame" {
         Name = "NewFrame",
         Position = UDim2.fromScale(1, 0)
@@ -85,7 +85,7 @@ Creates a new UI element, applying any given properties.
 
     A component using property nesting.
 
-    ```lua
+    ```luau
     type Layout = {
         Layout = {
             Position: UDim2?,
@@ -116,7 +116,7 @@ instances.
 
 - **Type**
 
-    ```lua
+    ```luau
     function action((Instance) -> (), priority: number = 1): Action
     ```
 
@@ -133,7 +133,7 @@ instances.
 
     An action to listen to changed properties:
 
-    ```lua
+    ```luau
     local function changed(property: string, callback: (new) -> ())
         return action(function(instance)
             local con - instance:GetPropertyChangedSignal(property):Connect(function()
@@ -154,3 +154,23 @@ instances.
         changed("Text", output)
     }
     ```
+
+## changed()
+
+A wrapper for `action()` to listen for property changes.
+
+- **Type**
+
+    ```luau
+    function changed(property: string, callback: (...unknown) -> ()): Action
+    ```
+
+- **Details**
+
+    Will run the given callback any time the property is changed, as well as
+    when the action is initially run.
+
+    The changed connection is disconnected when the scope the action is ran in
+    is destroyed.
+
+    Runs with an action priority of 1.

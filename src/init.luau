@@ -1,7 +1,8 @@
 --------------------------------------------------------------------------------
 -- vide.luau
--- v0.1.0
 --------------------------------------------------------------------------------
+
+local version = { major = 0, minor = 3, patch = 1 }
 
 if not game then script = require "test/relative-string" end
 
@@ -11,9 +12,12 @@ local create = require(script.create)
 local apply = require(script.apply)
 local source = require(script.source)
 local effect = require(script.effect)
+local derive = require(script.derive)
 local cleanup = require(script.cleanup)
 local untrack = require(script.untrack)
-local derive = require(script.derive)
+local read = require(script.read)
+local batch = require(script.batch)
+local context = require(script.context)
 local switch = require(script.switch)
 local show = require(script.show)
 local indexes, values = require(script.maps)()
@@ -24,6 +28,9 @@ local throw = require(script.throw)
 local flags = require(script.flags)
 
 export type Source<T> = source.Source<T>
+export type source<T> = Source<T>
+export type Context<T> = context.Context<T>
+export type context<T> = Context<T>
 
 local function step(dt: number)
     if game then
@@ -44,6 +51,8 @@ local stepped = game and game:GetService("RunService").Heartbeat:Connect(functio
 end)
 
 local vide = {
+    version = version,
+
     -- core
     root = root,
     mount = mount,
@@ -59,9 +68,9 @@ local vide = {
     -- util
     cleanup = cleanup,
     untrack = untrack,
-    read = function<T>(value: T | () -> T): T
-        return if type(value) == "function" then value() else value
-    end,
+    read = read,
+    batch = batch,
+    context = context,
 
     -- animations
     spring = spring,

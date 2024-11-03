@@ -24,14 +24,13 @@ Unsupported datatypes:
 local throw = require(script.Parent.throw)
 local graph = require(script.Parent.graph)
 type Node<T> = graph.Node<T>
-type StartNode<T> = graph.StartNode<T>
+type SourceNode<T> = graph.SourceNode<T>
 local create_node = graph.create_node
-local create_start_node = graph.create_start_node
-local get_owning_scope = graph.get_owning_scope
+local create_source_node = graph.create_source_node
+local assert_stable_scope = graph.assert_stable_scope
 local evaluate_node = graph.evaluate_node
-local update = graph.update
-local set_owner = graph.set_owner
-local track = graph.track
+local update_descendants = graph.update_descendants
+local push_child_to_scope = graph.push_child_to_scope
 
 local UPDATE_RATE = 120
 local TOLERANCE = 0.0001
@@ -111,15 +110,15 @@ local vec6_to_type = {
     end :: Vec6ToType<CFrame>,
 
     Color3 = function(v)
-        return Color3.new(v.X, v.Y, v.Z)
+        return Color3.new(math.clamp(v.X, 0, 1), math.clamp(v.Y, 0, 1), math.clamp(v.Z, 0, 1))
     end :: Vec6ToType<Color3>,
 
     UDim = function(v)
-        return UDim.new(v.X, v.Y)
+        return UDim.new(v.X, math.round(v.Y))
     end :: Vec6ToType<UDim>,
     
     UDim2 = function(a, b)
-        return UDim2.new(a.X, a.Y, a.Z, b.X)
+        return UDim2.new(a.X, math.round(a.Y), a.Z, math.round(b.X))
     end :: Vec6ToType<UDim2>,
 
     Vector2 = function(v)
@@ -146,11 +145,11 @@ setmetatable(vec6_to_type, invalid_type)
 
 -- maps spring data to its corresponding output node
 -- lifetime of spring data is tied to output node
-local springs: { [SpringData<any>]: StartNode<any> } = {}
+local springs: { [SpringData<any>]: SourceNode<any> } = {}
 setmetatable(springs, { __mode = "v" })
 
 local function spring<T>(source: () -> T, period: number?, damping_ratio: number?): () -> T
-    local owner = get_owning_scope()
+    local owner = assert_stable_scope()
 
     -- https://en.wikipedia.org/wiki/Damping
 
@@ -161,7 +160,8 @@ local function spring<T>(source: () -> T, period: number?, damping_ratio: number
     local c_c = 2*w_n
     local c = z * c_c
 
-    -- todo: is there a solution to this other than upping step frequency?
+    -- todo: is there a solution other than reducing step size?
+    -- todo: this does not catch all solver exploding cases
     if c > UPDATE_RATE*2 then -- solver will explode if this is true
         throw("spring damping too high, consider reducing damping or increasing period")
     end
@@ -181,7 +181,7 @@ local function spring<T>(source: () -> T, period: number?, damping_ratio: number
         source_value = false :: any,
     }
     
-    local output = create_start_node(false :: any)
+    local output = create_source_node(false :: any)
 
     local function updater_effect()
         local value = source()
@@ -191,9 +191,8 @@ local function spring<T>(source: () -> T, period: number?, damping_ratio: number
         return value
     end
 
-    local updater = create_node(false :: any, updater_effect)
+    local updater = create_node(owner, updater_effect, false :: any)
 
-    set_owner(updater, owner)
     evaluate_node(updater)
 
     -- set initial position to goal
@@ -202,9 +201,27 @@ local function spring<T>(source: () -> T, period: number?, damping_ratio: number
     -- set output to goal
     output.cache = data.source_value
 
-    return function()
-        track(output)
-        return output.cache
+    return function(...)
+        if select("#", ...) == 0 then -- no args were given
+            push_child_to_scope(output)
+            return output.cache
+        end
+
+        -- set current position to value
+        local v = ... :: T
+        data.x0_123, data.x0_456 = type_to_vec6[typeof(v)](v)
+
+        -- reset velocity
+        data.v_123 = ZERO
+        data.v_456 = ZERO
+
+        -- schedule spring
+        springs[data] = output
+
+        -- set output to value
+        output.cache = v
+
+        return v
     end
 end
 
@@ -268,7 +285,7 @@ local function update_spring_sources()
             output.cache = vec6_to_type[typeof(data.source_value)](x0_123, x0_456)
         end
 
-        update(output)
+        update_descendants(output)
     end
 
     for _, data in next, remove_queue do

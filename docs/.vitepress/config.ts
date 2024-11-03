@@ -1,5 +1,6 @@
 //import { defineConfig } from "vitepress"
 import { withMermaid } from "vitepress-plugin-mermaid";
+import { tabsMarkdownPlugin } from "vitepress-plugin-tabs"
 
 // https://vitepress.dev/reference/site-config
 export default withMermaid({
@@ -8,9 +9,23 @@ export default withMermaid({
     description: "A reactive UI library for Luau.",
     base: "/vide/",
     head: [["link", { rel: "icon", href: "/vide/logo.svg" }]],
+    
+    markdown: {
+        config(md) {
+            md.use(tabsMarkdownPlugin)
+        }
+    },
 
     themeConfig: {
         logo: "/logo.svg",
+
+        search: {
+            provider: "local"
+        },
+
+        footer: {
+            message: 'Released under the MIT License.',
+        },
 
         // https://vitepress.dev/reference/default-theme-config
         nav: [
@@ -43,19 +58,21 @@ export default withMermaid({
                         { text: "Components", link: "/tut/crash-course/3-components" },
                         { text: "Sources", link: "/tut/crash-course/4-source" },
                         { text: "Effects", link: "/tut/crash-course/5-effect" },
-                        { text: "Stateful Components", link: "/tut/crash-course/6-stateful-component" },
-                        { text: "Property Binding", link: "/tut/crash-course/7-property-binding" },
-                        { text: "Cleanup", link: "/tut/crash-course/8-cleanup" },
-                        { text: "Control Flow", link: "/tut/crash-course/9-control-flow" },
-                        { text: "Property Nesting", link: "/tut/crash-course/10-property-nesting" },
-                        { text: "Actions", link: "/tut/crash-course/11-actions" },
-                        { text: "Strict Mode", link: "/tut/crash-course/12-strict-mode" },
+                        { text: "Scopes", link: "/tut/crash-course/6-scope" },
+                        { text: "Stateful Components", link: "/tut/crash-course/7-stateful-component" },
+                        { text: "Implicit Effects", link: "/tut/crash-course/8-implicit-effect" },
+                        { text: "Derived Sources", link: "/tut/crash-course/9-derived-source" },
+                        { text: "Cleanup", link: "/tut/crash-course/10-cleanup" },
+                        { text: "Control Flow", link: "/tut/crash-course/11-control-flow" },
+                        { text: "Actions", link: "/tut/crash-course/12-actions" },
+                        { text: "Strict Mode", link: "/tut/crash-course/13-strict-mode" },
+                        { text: "Concepts Summary", link: "/tut/crash-course/14-concepts" }
                     ]
                 },
                 {
                     text: "Advanced Reactivity",
                     items: [
-                        { text: "Reactive Scopes", link: "/tut/advanced/reactive-scoping.md"}
+                        { text: "Nested Scopes", link: "/tut/advanced/nested-scoping.md"}
                     ]
                 }
             ],

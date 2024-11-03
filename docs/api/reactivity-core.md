@@ -3,28 +3,26 @@
 <br/>
 
 :::warning
-Yielding is not allowed in any reactive scope. Strict mode can check for this.
+Yielding is not allowed in any stable or reactive scope. Strict mode will check
+for this.
 :::
 
 ## root()
 
-Creates and runs a function in a new reactive scope.
+Creates and runs a function in a new stable scope.
 
 - **Type**
 
-    ```lua
-    function root<T...>(fn: (destroy: () -> ()) -> T...): T...
+    ```luau
+    function root<T...>(fn: (() -> ()) -> T...): (() -> (), T...)
     ```
 
 - **Details**
 
-    Returns the result of the given function.
+    Returns a function to destroy the root scope. Also passes this function as
+    the first argument into its callback.
 
-    Creates a new root reactive scope, where creation and derivations of sources
-    can be tracked and properly disposed of.
-
-    A function to destroy the root is passed into the callback, which will run
-    any cleanups and allow derived sources created to garbage collect.
+    All values returned by the callback are also returned following the destructor.
 
 ## source()
 
@@ -32,8 +30,12 @@ Creates a new source with the given value.
 
 - **Type**
 
-    ```lua
-    function source<T>(value: T): (T?) -> T
+    ```luau
+    function source<T>(value: T): Source<T>
+
+    type Source<T> =
+        () -> T -- get
+        & (T) -> () -- set
     ```
 
 - **Details**
@@ -41,14 +43,9 @@ Creates a new source with the given value.
     Calling the returned source with no argument will return its stored value,
     calling with an argument will set a new value.
 
-    Reading from the source from within a reactive scope will cause changes
-    to that source to be tracked and anything depending on it to update.
-
-    Sources can be created outside of reactive scopes.
-
 - **Example**
 
-    ```lua
+    ```luau
     local count = source(0)
 
     count() -- 0
@@ -62,20 +59,20 @@ Runs a side-effect in a new reactive scope on source update.
 
 - **Type**
 
-    ```lua
+    ```luau
     function effect(callback: () -> ())
     ```
 
 - **Details**
 
-    Any time a source referenced in the callback is changed, the callback will
+    Any time a source referenced in the callback is updated, the callback will
     be reran.
 
-    The callback is ran to initially ran on first call to find dependent sources.
+    The callback is ran once immediately.
 
 - **Example**
 
-    ```lua
+    ```luau
     local num = source(1)
 
     effect(function()
@@ -95,7 +92,7 @@ Derives a new source in a new reactive scope from existing sources.
 
 - **Type**
 
-    ```lua
+    ```luau
     function derive<T>(source: () -> T): () -> T
     ```
 
@@ -107,11 +104,11 @@ Derives a new source in a new reactive scope from existing sources.
     Anytime its value is recalculated it is also cached, subsequent calls will
     retun this cached value until it recalculates again.
 
-    The callback is ran to initially ran on first call to find dependent sources.
+    The callback is ran once immediately.
 
 - **Example**
 
-    ```lua
+    ```luau
     local count = source(0)
     local text = derive(function() return `count: {count()}` end)
 

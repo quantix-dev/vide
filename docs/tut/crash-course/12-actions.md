@@ -1,14 +1,13 @@
 # Actions
 
 Actions in Vide are special callbacks that you can pass along with properties,
-which will be called when those properties are being processed with the instance
-being assigned to, allowing you to run custom code.
+to run some code on an instance receiving them.
 
-```lua
+```luau
 local action = vide.action
 ```
 
-```lua
+```luau
 create "TextLabel" {
     Text = "test",
 
@@ -20,24 +19,23 @@ create "TextLabel" {
 -- will print "test"
 ```
 
-Actions can be wrapped with functions to re-use specific behaviors. Below is
-an example of an action used to listen for property changes:
+Actions can be wrapped with functions for reuse. Below is an example of an
+action used to listen for property changes:
 
-```lua
+```luau
 local action = vide.action
+local effect = vide.effect
 local cleanup = vide.cleanup
 
-local function changed(property: string, callback: (new) -> ())
+local function changed(prop: string, callback: (new) -> ())
     return action(function(instance)
-        local con = instance:GetPropertyChangedSignal(property):Connect(function()
+        local connection = instance:GetPropertyChangedSignal(prop):Connect(function()
             callback(instance[property])
         end)
 
         -- remember to clean up the connection when the reactive scope the action
         -- is ran in is destroyed, so the instance can be garbage collected
-        cleanup(function()
-            con:Disconnect()
-        end)
+        cleanup(connection)
     end)
 end
 
@@ -47,9 +45,11 @@ local instance = create "TextBox" {
     changed("Text", output)
 }
 
-instance.Text = "foo"
+effect(function()
+    print(output())
+end)
 
-print(output()) -- "foo"
+instance.Text = "foo" -- "foo" will be printed from the effect
 ```
 
 The source `output` will be updated with the new property value any time it is

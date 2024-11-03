@@ -2,17 +2,22 @@
 
 ## cleanup()
 
-Runs a callback anytime a reactive scope is reran or destroyed.
+Runs a callback anytime a scope is reran or destroyed.
 
 - **Type**
 
-    ```lua
+    ```luau
     function cleanup(callback: () -> ())
+    function cleanup(obj: Destroyable)
+    function cleanup(obj: Disconnectable)
+
+    type Destroyable = { destroy: () -> () }
+    type Disconnectable = { disconnect: () -> () }
     ```
 
 - **Example**
 
-    ```lua
+    ```luau
     local data = source(1)
 
     effect(function()
@@ -26,23 +31,22 @@ Runs a callback anytime a reactive scope is reran or destroyed.
 
 ## untrack()
 
-Runs a given function where any sources read will not be tracked by a reactive
-scope.
+Runs a given function in a new stable scope.
 
 - **Type**
 
-    ```lua
+    ```luau
     function untrack<T>(source: () -> T): T
     ```
 
 - **Details**
 
-    Updates made to a source passed to `untrack()` will not cause updates to
-    anything depending on that source.
+    Can be used inside a reactive scope to read from sources you do not want
+    tracked by the reactive scope.
 
 - **Example**
 
-    ```lua
+    ```luau
     local a = source(0)
     local b = source(0)
 
@@ -64,8 +68,67 @@ read can still be tracked inside a reactive scope.
 
 - **Type**
 
-    ```lua
+    ```luau
     function read<T>(value: T | () -> T): T
+    ```
+
+## batch()
+
+Runs a given function where any source updates made within the function do not
+trigger effects until after the function finishes running.
+
+- **Type**
+
+    ```luau
+    function batch(fn: () -> ())
+    ```
+
+- **Details**
+
+    Improves performance when an effect depends on multiple sources, and those
+    sources need to be updated. Updating those sources inside a batch call will
+    only cause the effect to run once after the batch call ends instead of after
+    each time a source is updated.
+
+## context()
+
+Creates a new context.
+
+- **Type**
+
+    ```luau
+    function context<T>(default: T): Context<T>
+
+    type Context<T> =
+        () -> T -- get
+        & (T, () -> ()) -> () -- set
+    ```
+
+- **Details**
+
+    Calling `context()` returns a new context function.
+    Call this function with no arguments to get the context value.
+    Call this function with a value and a callback to set a new context with the
+    given value.
+
+- **Example**
+
+    ```luau
+    local theme = context()
+
+    local function Button()
+        print(theme())
+    end
+
+    root(function()
+        theme("light", function()
+             Button() -- prints "light"
+
+            theme("dark", function()
+                Button() -- prints "dark"
+            end)
+        end)
+    end)
     ```
 
 --------------------------------------------------------------------------------

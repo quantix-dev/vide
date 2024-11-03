@@ -4,10 +4,14 @@ local BENCH, START = testkit.benchmark()
 local vide = require "src/init"
 local source = vide.source
 local derive = vide.derive
+local effect = vide.effect
 local indexes = vide.indexes
 local values = vide.values
+local batch = vide.batch
 local cleanup = vide.cleanup
+local untrack = vide.untrack
 local create = vide.create
+local context = vide.context
 
 assert(not vide.strict)
 
@@ -24,7 +28,6 @@ local function ROOT_BENCH(name: string, fn: () -> ())
 end
 
 local N = 2^18 -- 262144
-
 
 TITLE "sources"
 
@@ -132,8 +135,28 @@ ROOT_BENCH("update 1->1->1->1...1000 graph", function()
     end
 end)
 
--- todo: repeat with batching
-ROOT_BENCH("update 1000->1 graph", function()
+-- todo: why does it hang at 1k? it didn't before
+ROOT_BENCH("update 500->1 graph", function()
+    local srcs = {}
+    for i = 1, 500 do
+        srcs[i] = source(0)
+    end
+
+    derive(function()
+        for i = 1, 500 do
+            srcs[i]()
+        end
+        return false
+    end)
+
+    for i = 1, START(1) do
+        for idx = 1, 500 do
+            srcs[idx](i)
+        end
+    end
+end)
+
+ROOT_BENCH("update 1000->1 graph (batched)", function()
     local srcs = {}
     for i = 1, 1000 do
         srcs[i] = source(0)
@@ -147,14 +170,16 @@ ROOT_BENCH("update 1000->1 graph", function()
     end)
 
     for i = 1, START(1) do
-        for idx = 1, 1000 do
-            srcs[idx](i)
-        end
+        batch(function()
+            for idx = 1, 1000 do
+                srcs[idx](i)
+            end
+        end)
     end
 end)
 
--- todo: optimize, repeat with batching
-ROOT_BENCH("update 1000x 1->1 common extern. graph", function()
+-- todo: optimize this case
+ROOT_BENCH("update 1000 1->1 common extern. graph", function()
     local ext = source(-1)
 
     local srcs = {}
@@ -424,28 +449,62 @@ ROOT_BENCH("values() all remove", function()
     src(data)
 end)
 
-N *= 1024
+TITLE "context()"
 
-TITLE "cleanup"
+ROOT_BENCH("set context", function()
+    local ctx = context()
 
-ROOT_BENCH("register new cleanup", function()
-    local cleanup = cleanup
+    for i = 1, START(N) do
+        ctx(i, function() end)
+    end
+end)
 
-    local cleaner = function() end
+ROOT_BENCH("get context (depth=1)", function()
+    local ctx = context()
 
-    local callers = {}
-
-    for i = 1, N do
-        callers[i] = function(fn, v)
-            fn(v)
-            return i -- return unique upvalue to ensure unique closure
+    local function run()
+        for i = 1, START(N) do
+            ctx()
         end
     end
 
-    for i = 1, START(N) do
-        callers[i](cleanup, cleaner)
-    end
+    ctx(1, function()
+        run()
+    end)
 end)
+
+local depth = 10
+ROOT_BENCH(`get context (depth={depth})`, function()
+
+    local ctx = context()
+
+    local function run()
+        for i = 1, START(N) do
+            ctx()
+        end
+    end
+
+    local function nest_effect(fn)
+        untrack(function()
+            effect(fn)
+            return nil
+        end)
+    end
+    
+    local f = run
+    for i = 1, depth - 1 do
+        local f_inner = f
+        f = function()
+            nest_effect(f_inner)
+        end
+    end
+
+    ctx(1, function()
+        f()
+    end)
+end)
+
+N *= 1024
 
 TITLE "aggregate"
 
